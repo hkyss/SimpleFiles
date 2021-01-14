@@ -1,16 +1,27 @@
 var sfHelper = {};
 (function($){
-	sfHelper = {
+    sfHelper = {
         sourceRow: {},
         targetRow: {},
         point: '',
         init: function() {
             var workspace = $('#SimpleFiles');
-            workspace.append('<div class="js-fileapi-wrapper"><div class="btn-left"><a href="javascript:void(0)" id="sfUploadBtn"></a><a href="javascript:void(0)" id="sfAddBtn"></a></div><table id="sfGrid" width="100%"></table></div>');
-            $('#sfAddBtn').linkbutton({
-               iconCls:'fa fa-file-o',
-               text: 'Добавить'
+
+            workspace.append('<div class="js-fileapi-wrapper"><div class="btn-left"><a href="javascript:void(0)" id="sfUploadBtn"></a><a href="javascript:;" id="sfAddBtn" onclick="GetAllFiles(event);"></a></div><table id="sfGrid" width="100%"></table><div id="dlg" class="easyui-dialog" title="File catalog" style="width:600px;padding:10px"><ul id="tt" class="easyui-tree" style="height:400px;overflow:scroll;border-bottom: 1px solid #D4D4D4;" checkbox="true"></ul><div style="margin-top:10px;display:flex;justify-content:flex-end;"><a href="javascript:;" id="sfSaveBtn" onclick="SaveFiles(event);"></a></div></div></div>');
+
+            $('#dlg').dialog({
+                closed: true,
             });
+
+            $('#sfAddBtn').linkbutton({
+                iconCls:'fa fa-file-o',
+                text: 'Добавить'
+            });
+            $('#sfSaveBtn').linkbutton({
+                iconCls:'fa fa-save',
+                text: 'Сохранить'
+            });
+
             var uploaderOptions = {
                 workspace:'#SimpleFiles',
                 dndArea:'.js-fileapi-wrapper',
@@ -54,19 +65,19 @@ var sfHelper = {};
                 ]
             });
             $('.btn-extra').parent().parent().hide();
-		},
+        },
         destroyWindow: function(wnd) {
             wnd.window('destroy',true);
             $('.window-shadow,.window-mask').remove();
             $('body').css('overflow','auto');
         },
-		escape: function(str) {
-			return str
-			    .replace(/&/g, '&amp;')
-			    .replace(/>/g, '&gt;')
-			    .replace(/</g, '&lt;')
-			    .replace(/"/g, '&quot;');
-		},
+        escape: function(str) {
+            return str
+                .replace(/&/g, '&amp;')
+                .replace(/>/g, '&gt;')
+                .replace(/</g, '&lt;')
+                .replace(/"/g, '&quot;');
+        },
         saverow: function (index) {
             $('#sfGrid').edatagrid('endEdit', index);
         },
@@ -91,7 +102,7 @@ var sfHelper = {};
             $.messager.confirm(_sfLang['delete'],_sfLang['are_you_sure_to_delete_many'],function(r){
                 if (r && ids.length > 0){
                     $.post(
-                        sfConfig.url+'?mode=remove', 
+                        sfConfig.url+'?mode=remove',
                         {
                             ids:ids.join(),
                             sf_rid:sfConfig.rid
@@ -109,5 +120,70 @@ var sfHelper = {};
                 }
             });
         }
-	}
+    }
 })(jQuery);
+
+function GetAllFiles(e) {
+    (function($){
+        $('#sfGrid').edatagrid('reload');
+
+        $.ajax({
+            type: 'get',
+            url: '/simplefiles-getfilelist',
+            dataType: 'json',
+            success: function (data) {
+                $('#tt').tree({
+                    url:'/assets/plugins/simplefiles/files.json',
+                    animate:true,
+                    onlyLeafCheck:true
+                });
+
+                $('#dlg').dialog({
+                    closed: false
+                });
+            }
+        });
+
+        e.preventDefault();
+    })(jQuery);
+}
+
+function SaveFiles(e) {
+    (function($){
+        let params = window
+            .location
+            .search
+            .replace('?','')
+            .split('&')
+            .reduce(
+                function(p,e){
+                    var a = e.split('=');
+                    p[ decodeURIComponent(a[0])] = decodeURIComponent(a[1]);
+                    return p;
+                },
+                {}
+            );
+
+        let checked = $('#tt').tree('getChecked');
+
+        $.ajax({
+            type: 'get',
+            url: '/simplefiles-savefilelist',
+            data: {
+                files: JSON.stringify(checked),
+                parameters: params
+            },
+            dataType: 'json',
+            contentType: "application/json; charset=utf-8",
+            success: function (data) {
+                $('#dlg').dialog({
+                    closed: true
+                });
+
+                $('#sfGrid').edatagrid('reload');
+            }
+        });
+
+        e.preventDefault();
+    })(jQuery);
+}
